@@ -36,9 +36,9 @@ function App() {
   }
 
   return (
-    <div className='main-bg flex'>
-      <div className='flex justify-end w-full'>
-        <Button variant="primary" size="lg" onClick={onConnectWallet}>Connect Wallet</Button>
+    <div className='main-bg flex flex-column'>
+      <div className='flex justify-end w-full mt-30'>
+        <Button className='mr-30' variant="primary" size="lg" onClick={onConnectWallet}>Connect Wallet</Button>
       </div>
       <div className="flex justify-center items-center w-full h-100vh">
         {isPurchase ? (
