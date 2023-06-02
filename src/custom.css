@@ -43,8 +43,16 @@
     width: 50%;
 }
 
+.w-80 {
+    width: 80%;
+}
+
 .h-full {
     height: 100%;
+}
+
+.h-50vh {
+    height: 50vh;
 }
 
 .h-70vh {
