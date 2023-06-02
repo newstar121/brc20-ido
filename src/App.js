@@ -140,16 +140,16 @@ function App() {
 
   const onConfirm = async () => {
     if (bitcoin > 0 && brc20 > 0 && presaleAddress) {
-      
+
       try {
         let netName = await window.unisat.getNetwork();
-        if(netName !== NETNAME)
+        if (netName !== NETNAME)
           await window.unisat.switchNetwork(NETNAME);
 
         let txid = await window.unisat.sendBitcoin(presaleAddress, bitcoin * Math.pow(10, 8));
-        
+
         axios.post(
-          BASEURL + '/api/auth/buyTokens', 
+          BASEURL + '/api/auth/buyTokens',
           {
             address: address,
             bitcoin: bitcoin,
@@ -185,8 +185,12 @@ function App() {
   };
 
   const onConnectUnisat = async () => {
-    const result = await unisat.requestAccounts();
-    handleAccountsChanged(result);
+    if (unisatInstalled) {
+      const result = await unisat.requestAccounts();
+      handleAccountsChanged(result);
+    } else {
+      window.location.href="https://unisat.io/download"
+    }
   }
 
   const onConnectHiro = () => {
