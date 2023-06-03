@@ -9,8 +9,9 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axios from 'axios'
 
-const BASEURL = 'http://localhost:5005'
+const BASEURL = 'http://192.168.123.103:5005'
 const NETNAME = 'testnet'
+const DECIMAL = 6;
 
 const setAuthToken = token => {
   if (token) {
@@ -90,13 +91,13 @@ function App() {
   };
 
   const onChangeBitcoin = (e) => {
-    setBrc20(e.target.value)
+    setBrc20(e.target.value * Math.pow(10, DECIMAL))
     setBitcoin(e.target.value)
   }
 
   const onChangeBrc20 = (e) => {
     setBrc20(e.target.value)
-    setBitcoin(e.target.value)
+    setBitcoin(e.target.value / Math.pow(10, DECIMAL))
   }
 
   const onPurchase = () => {
@@ -146,15 +147,14 @@ function App() {
         if (netName !== NETNAME)
           await window.unisat.switchNetwork(NETNAME);
 
-        let txid = await window.unisat.sendBitcoin(presaleAddress, bitcoin * Math.pow(10, 8));
-
+        if (balance) console.log('balance', balance)
         axios.post(
-          BASEURL + '/api/auth/buyTokens',
+          BASEURL + '/api/auth/checkAccount',
           {
             address: address,
-            bitcoin: bitcoin,
+            balance: balance,
             brc20: brc20,
-            txid: txid
+            bitcoin: bitcoin
           },
           {
             headers: {
@@ -163,7 +163,30 @@ function App() {
           }
         ).then(result => {
           if (result.data.success) {
-            toast.success('Success')
+            window.unisat.sendBitcoin(presaleAddress, bitcoin * Math.pow(10, 8)).then((txid) => {
+              axios.post(
+                BASEURL + '/api/auth/setTxid',
+                {
+                  address: address,
+                  txid: txid
+                },
+                {
+                  headers: {
+                    'Content-Type': 'application/json'
+                  }
+                }
+              ).then(result => {
+                if (result.data.success) {
+                  toast.success(result.data.msg)
+                  if (isPurchase)
+                    setIsPurchase(false)
+                } else {
+                  toast.error(result.data.msg)
+                }
+              })
+            }).catch((error) => {
+              console.log('txid error', error);
+            })
           } else {
             toast.error(result.data.msg)
           }
@@ -189,7 +212,7 @@ function App() {
       const result = await unisat.requestAccounts();
       handleAccountsChanged(result);
     } else {
-      window.location.href="https://unisat.io/download"
+      window.location.href = "https://unisat.io/download"
     }
   }
 
