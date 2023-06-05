@@ -1,6 +1,7 @@
 import logo from './logo.svg';
 import unisat_logo from './unisat_logo.png'
 import hiro_logo from './hiro_logo.png'
+import btc_logo from './btc.svg'
 import './App.css';
 import './custom.css'
 import { InputGroup, Form, Row, Button, Col, Modal } from 'react-bootstrap'
@@ -9,8 +10,12 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axios from 'axios'
 
+import { AppConfig, SignatureData, UserSession, showConnect, openSignatureRequestPopup as signMessageHiro } from '@stacks/connect';
+// import { StacksMainnet } from '@stacks/network';
+// import { AddressPurposes, getAddress } from 'sats-connect'
+
 const BASEURL = 'http://192.168.123.103:5005'
-const NETNAME = 'testnet'
+const NETWORKNAME = 'testnet'
 const DECIMAL = 6;
 
 const setAuthToken = token => {
@@ -20,6 +25,17 @@ const setAuthToken = token => {
     delete axios.defaults.headers.common['Authorization'];
   }
 };
+
+const getAccountInfo = (userData, network) => {
+  // NOTE: Although this approach to obtain the user's address is good enough for now, it is quite brittle.
+  // It relies on a variable having the same value as the object key below. Type checking is not available given the `userSession` object managed by `@stacks/connect` is typed as `any`.
+  //
+  // Should this be a source of issues, it may be worth refactoring.
+  const btcAddressP2tr = userData?.profile?.btcAddress?.p2tr?.[network];
+  const btcPublicKeyP2tr = userData?.profile?.btcPublicKey?.p2tr;
+
+  return { btcAddressP2tr, btcPublicKeyP2tr };
+}
 
 function App() {
 
@@ -42,6 +58,22 @@ function App() {
   const [network, setNetwork] = useState("livenet");
 
   const [hiroInstalled, setHiroInstalled] = useState(false);
+
+  const [hour, setHour] = useState(0)
+  const [minute, setMinute] = useState(0)
+  const [second, setSecond] = useState(0)
+
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  const [hasSearchedForExistingSession, setHasSearchedForExistingSession] = useState(false);
+
+  const appDetails = {
+    name: 'Bitcoin Land',
+    icon: `https://aptosland.io/favicon.ico`,
+  }
+
+  const appConfig = new AppConfig(['store_write']);
+  const userSession = new UserSession({ appConfig });
 
   const unisat = window.unisat;
 
@@ -143,9 +175,9 @@ function App() {
     if (bitcoin > 0 && brc20 > 0 && presaleAddress) {
 
       try {
-        let netName = await window.unisat.getNetwork();
-        if (netName !== NETNAME)
-          await window.unisat.switchNetwork(NETNAME);
+        let networkName = await window.unisat.getNetwork();
+        if (networkName !== NETWORKNAME)
+          await window.unisat.switchNetwork(NETWORKNAME);
 
         if (balance) console.log('balance', balance)
         axios.post(
@@ -209,15 +241,61 @@ function App() {
 
   const onConnectUnisat = async () => {
     if (unisatInstalled) {
-      const result = await unisat.requestAccounts();
-      handleAccountsChanged(result);
+      try {
+        const result = await unisat.requestAccounts();
+        handleAccountsChanged(result);
+      } catch (error) {
+        console.log('onConnectUnisat error', error)
+      }
     } else {
       window.location.href = "https://unisat.io/download"
     }
   }
 
   const onConnectHiro = () => {
+    if (isSigningIn) {
+      console.log('Attempted to sign in while sign is is in progress.');
+      return;
+    }
+    setIsSigningIn(true);
+    showConnect({
+      userSession,
+      appDetails,
+      onFinish() {
+        setIsSigningIn(false);
 
+        let userData = null;
+        try {
+          userData = userSession.loadUserData();
+        } catch {
+          // do nothing
+        }
+
+        const retVal = getAccountInfo(userData, NETWORKNAME);
+        console.log("onFinish connect", userData, retVal)
+        setAddress(retVal.btcAddressP2tr)
+        setConnected(true);
+      },
+      onCancel() {
+        setIsSigningIn(false);
+        if (!hasSearchedForExistingSession) {
+          if (userSession.isUserSignedIn()) {
+            let userData = null;
+            try {
+              userData = userSession.loadUserData();
+            } catch {
+              // do nothing
+            }
+
+            const retVal2 = getAccountInfo(userData, NETWORKNAME);
+            setAddress(retVal2.btcAddressP2tr)
+            setConnected(true);
+          }
+
+          setHasSearchedForExistingSession(true);
+        }
+      },
+    });
   }
 
   useEffect(() => {
@@ -246,8 +324,56 @@ function App() {
     else return _address
   }
 
+  useEffect(() => {
+
+    try {
+      axios.get(
+        BASEURL + '/api/getPresaleTime', {},
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      ).then(result => {
+        if (result.data.success) {
+          let startTs = (new Date()).getTime();
+          localStorage.setItem('presaleTime', result.data.timestamp);
+          localStorage.setItem('startTime', startTs);
+          const intervalId = setInterval(() => {
+            let currentTs = (new Date()).getTime();
+            let leftTs = localStorage.getItem('presaleTime') - (currentTs - localStorage.getItem('startTime'))
+            let seconds = parseInt(leftTs / 1000);
+            let hour = parseInt(seconds / 3600);
+            let minute = parseInt((seconds % 3600) / 60);
+            let second = parseInt(seconds - hour * 3600 - minute * 60);
+
+            hour = hour < 10 ? "0" + hour : hour;
+            minute = minute < 10 ? "0" + minute : minute;
+            second = second < 10 ? "0" + second : second;
+
+            setHour(hour);
+            setMinute(minute);
+            setSecond(second);
+          }, 1000);
+        } else {
+          toast.error(result.data.msg)
+        }
+      })
+    } catch (error) {
+      console.log('Error getting presale time', error);
+    }
+  }, [])
+
+  const setMax = () => {
+
+  }
+
+  const onMint = () => {
+
+  }
+
   return (
-    <div className='main-bg flex flex-column w-full h-100vh'>
+    <div className='main-bg flex flex-column w-full' style={{ height: 'fit-content' }}>
       <ToastContainer autoClose={3000} draggableDirection='x' />
       <Modal show={openDialog} onHide={handleClose} centered>
         <Modal.Header closeButton>
@@ -263,8 +389,9 @@ function App() {
       <div className='flex justify-end w-full mt-30'>
         <Button className='mr-30' variant="primary" size="lg" onClick={onConnectWallet}>{unisatInstalled && connected ? renderWalletAddress(address) : 'Connect Wallet'}</Button>
       </div>
-      <div className="flex justify-center items-center w-full">
-        {isPurchase ? (
+      <div className="flex flex-column items-center w-full">
+        {/* first result */}
+        {/* {isPurchase ? (
           <div className='content-bg flex flex-column w-50 h-70vh br-10 justify-around items-center pt-30 pb-30'>
             <Row className='flex justify-between items-center w-80'>
               <span className='text-white fs-32'>Send bitcoin here:</span>
@@ -313,9 +440,185 @@ function App() {
             </Row>
             <Button variant="primary" size="lg" onClick={onPurchase}>Purchase</Button>
           </div>
-        )}
+        )} */}
+        {/* second result */}
+        <div className='content-bg flex flex-column w-50 br-10 items-center p-30 mb-30'>
+          <Row className='flex justify-center items-center mb-20'>
+            <span className='text-white fs-48'>PUBLIC SALE</span>
+          </Row>
+          <div className='flex justify-between items-center w-full mt-20'>
+            <span className='text-white fs-28'>SALE END TIME</span>
+            <div className='flex flex-column justify-around items-center'>
+              <span className='text-white fs-36'>{hour}</span>
+              <span className='text-grey fs-12'>Hours</span>
+            </div>
+            <div className='flex flex-column justify-around items-center'>
+              <span className='text-white fs-36'>{minute}</span>
+              <span className='text-grey fs-12'>Minutes</span>
+            </div>
+            <div className='flex flex-column justify-around items-center'>
+              <span className='text-white fs-36'>{second}</span>
+              <span className='text-grey fs-12'>Seconds</span>
+            </div>
+          </div>
+          <div className='flex items-center w-full mt-30 fs-24'>
+            <span className='text-white'>8.85535 </span>< span className='text-yellow'>BTC</span><span className='text-white'>/108contributors</span>
+          </div>
+          <Row className='mt-30 fs-24 w-full'>
+            <Col sm={9} className='text-white'>Raising Percentage</Col>
+            <Col sm={3} className='text-white align-right'>118.07%</Col>
+          </Row>
+          <Row className='mt-30 fs-24 w-full'>
+            <Col sm={9} className='text-white'>Funds to raise</Col>
+            <Col sm={3} className='text-white align-right'>7.5 <span className='text-yellow'>BTC</span></Col>
+          </Row>
+          <Row className='mt-30 fs-24 w-full'>
+            <Col sm={9} className='text-white'>My Investment</Col>
+            <Col sm={3} className='text-white align-right'>0 <span className='text-yellow'>BTC</span></Col>
+          </Row>
+          <Row className='mt-30 fs-24 w-full'>
+            <Col sm={9} className='text-white'>Received</Col>
+            <Col sm={3} className='text-white align-right'>0 <span className='text-yellow'>XXX</span></Col>
+          </Row>
+          <Row className='mt-30 fs-24 w-full'>
+            <Col sm={3} className='text-white'>Ratio</Col>
+            <Col sm={9} className='text-white align-right'>1 <span className='text-yellow'>XXX</span>=0.0000008547619047<span className='text-yellow'>BTC</span></Col>
+          </Row>
+          <Row className='input-border w-full mt-30 p-10'>
+            <Col sm={3}><Button onClick={setMax} className='fs-32' variant="yellow" size="md" style={{ width: '100px' }}>MAX</Button></Col>
+            <Col sm={8}>
+              <InputGroup className='w-full'>
+                <Form.Control
+                  type='number'
+                  className='align-right trans-bg'
+                  aria-label="Large"
+                  aria-describedby="inputGroup-sizing-sm"
+                  style={{
+                    background: 'none',
+                    // border: 'none',
+                    color: "white"
+                  }}
+                />
+              </InputGroup>
+            </Col>
+            <Col sm={1} className='flex jusitfy-center items-center'>
+              <img src={btc_logo} style={{ width: '2vw', height: '2vw' }} alt="logo"></img>
+            </Col>
+          </Row>
+          <Row className='w-full'>
+            <span className='text-white'>Limit:(0.00036-0.72)</span>
+          </Row>
+          <Row className='input-border w-full mt-30 p-10'>
+            <Col sm={4}><span className='text-white fs-24'>Invitation Code:</span></Col>
+            <Col sm={8}>
+              <InputGroup className='w-full'>
+                <Form.Control
+                  className='align-right trans-bg'
+                  aria-label="Large"
+                  aria-describedby="inputGroup-sizing-sm"
+                  style={{
+                    background: 'none',
+                    color: "#F7931A"
+                  }}
+                  placeholder='(optional)'
+                />
+              </InputGroup>
+            </Col>
+          </Row>
+          <Row className='flex justify-center items-center mt-30'>
+            <Button onClick={onMint} className='fs-32' variant="yellow" size="lg" style={{ width: '200px' }}>MINT</Button>
+          </Row>
+        </div>
+
+        <div className='content-bg flex flex-column w-50 br-10 items-center p-30 mb-30'>
+          <Row className='flex justify-center items-center mb-20'>
+            <span className='text-white fs-48'>WHITELIST SALE</span>
+          </Row>
+          <div className='flex justify-between items-center w-full mt-20'>
+            <span className='text-white fs-28'>SALE END TIME</span>
+            <div className='flex flex-column justify-around items-center'>
+              <span className='text-white fs-36'>{hour}</span>
+              <span className='text-grey fs-12'>Hours</span>
+            </div>
+            <div className='flex flex-column justify-around items-center'>
+              <span className='text-white fs-36'>{minute}</span>
+              <span className='text-grey fs-12'>Minutes</span>
+            </div>
+            <div className='flex flex-column justify-around items-center'>
+              <span className='text-white fs-36'>{second}</span>
+              <span className='text-grey fs-12'>Seconds</span>
+            </div>
+          </div>
+          <div className='flex items-center w-full mt-30 fs-24'>
+            <span className='text-white'>8.85535 </span>< span className='text-yellow'>BTC</span><span className='text-white'>/108contributors</span>
+          </div>
+          <Row className='mt-30 fs-24 w-full'>
+            <Col sm={9} className='text-white'>Raising Percentage</Col>
+            <Col sm={3} className='text-white align-right'>118.07%</Col>
+          </Row>
+          <Row className='mt-30 fs-24 w-full'>
+            <Col sm={9} className='text-white'>Funds to raise</Col>
+            <Col sm={3} className='text-white align-right'>7.5 <span className='text-yellow'>BTC</span></Col>
+          </Row>
+          <Row className='mt-30 fs-24 w-full'>
+            <Col sm={9} className='text-white'>My Investment</Col>
+            <Col sm={3} className='text-white align-right'>0 <span className='text-yellow'>BTC</span></Col>
+          </Row>
+          <Row className='mt-30 fs-24 w-full'>
+            <Col sm={9} className='text-white'>Received</Col>
+            <Col sm={3} className='text-white align-right'>0 <span className='text-yellow'>XXX</span></Col>
+          </Row>
+          <Row className='mt-30 fs-24 w-full'>
+            <Col sm={3} className='text-white'>Ratio</Col>
+            <Col sm={9} className='text-white align-right'>1 <span className='text-yellow'>XXX</span>=0.0000008547619047<span className='text-yellow'>BTC</span></Col>
+          </Row>
+          <Row className='input-border w-full mt-30 p-10'>
+            <Col sm={3}><Button onClick={setMax} className='fs-32' variant="yellow" size="md" style={{ width: '100px' }}>MAX</Button></Col>
+            <Col sm={8}>
+              <InputGroup className='w-full'>
+                <Form.Control
+                  type='number'
+                  className='align-right trans-bg'
+                  aria-label="Large"
+                  aria-describedby="inputGroup-sizing-sm"
+                  style={{
+                    background: 'none',
+                    // border: 'none',
+                    color: "white"
+                  }}
+                />
+              </InputGroup>
+            </Col>
+            <Col sm={1} className='flex jusitfy-center items-center'>
+              <img src={btc_logo} style={{ width: '2vw', height: '2vw' }} alt="logo"></img>
+            </Col>
+          </Row>
+          <Row className='w-full'>
+            <span className='text-white'>Limit:(0.00036-0.72)</span>
+          </Row>
+          <Row className='input-border w-full mt-30 p-10'>
+            <Col sm={4}><span className='text-white fs-24'>Invitation Code:</span></Col>
+            <Col sm={8}>
+              <InputGroup className='w-full'>
+                <Form.Control
+                  className='align-right trans-bg'
+                  aria-label="Large"
+                  aria-describedby="inputGroup-sizing-sm"
+                  style={{
+                    background: 'none',
+                    color: "#F7931A"
+                  }}
+                  placeholder='(optional)'
+                />
+              </InputGroup>
+            </Col>
+          </Row>
+          <Row className='flex justify-center items-center mt-30'>
+            <Button onClick={onMint} className='fs-32' variant="yellow" size="lg" style={{ width: '200px' }}>MINT</Button>
+          </Row>
+        </div>
       </div>
-    </div>
+    </div >
 
   );
 }

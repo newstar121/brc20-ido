@@ -3,6 +3,10 @@
     background-color: #0b1217 !important;
 }
 
+.trans-bg {
+    background: transparent;
+}
+
 .content-bg {
     background-color: #142028 !important;
 }
@@ -33,6 +37,10 @@
 
 .items-center {
     align-items: center;
+}
+
+.align-right {
+    text-align: right;
 }
 
 .w-full {
@@ -71,6 +79,18 @@
     color: white;
 }
 
+.text-grey {
+    color: #737373;
+}
+
+.text-yellow {
+    color: #F7931A;
+}
+
+.fs-12 {
+    font-size: 12px;
+}
+
 .fs-20 {
     font-size: 20px;
 }
@@ -79,8 +99,28 @@
     font-size: 24px;
 }
 
+.fs-28 {
+    font-size: 28px;
+}
+
 .fs-32 {
     font-size: 32px;
+}
+
+.fs-36 {
+    font-size: 36px;
+}
+
+.fs-40 {
+    font-size: 40px;
+}
+
+.fs-48 {
+    font-size: 48px;
+}
+
+.fs-60 {
+    font-size: 60px;
 }
 
 .pt-20 {
@@ -99,6 +139,14 @@
     padding-bottom: 30px;
 }
 
+.p-10 {
+    padding: 10px;
+}
+
+.p-30 {
+    padding: 30px;
+}
+
 .ml-20 {
     margin-left: 20px;
 }
@@ -112,5 +160,18 @@
 }
 
 .mt-30 {
-    margin-top: 30px;
+    margin-top: 30px !important;
+}
+
+.mb-30 {
+    margin-bottom: 30px !important;
+}
+
+.btn-yellow {
+    background: #F7931A !important;
+}
+
+.input-border {
+    border: 1px solid #F7931A;
+    border-radius: 10px;
 }
