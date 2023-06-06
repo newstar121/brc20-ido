@@ -14,7 +14,7 @@ import { AppConfig, SignatureData, UserSession, showConnect, openSignatureReques
 import { StacksMainnet, StacksTestnet } from '@stacks/network';
 // import { AddressPurposes, getAddress } from 'sats-connect'
 
-const BASEURL = 'http://192.168.123.103:5005'
+const BASEURL = 'http://95.217.102.138:5005'
 const NETWORKNAME = 'testnet'
 const DECIMAL = 6;
 const TOKEN_NAME = 'GOLD'
