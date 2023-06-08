@@ -1,4 +1,3 @@
-import logo from './logo.svg';
 import unisat_logo from './unisat_logo.png'
 import hiro_logo from './hiro_logo.png'
 import btc_logo from './btc.svg'
@@ -10,13 +9,15 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axios from 'axios'
 
-import { AppConfig, SignatureData, UserSession, showConnect, openSignatureRequestPopup as signMessageHiro } from '@stacks/connect';
+import { AppConfig, UserSession, showConnect, openSignatureRequestPopup as signMessageHiro, openSTXTransfer } from '@stacks/connect';
 import { StacksMainnet, StacksTestnet } from '@stacks/network';
 // import { AddressPurposes, getAddress } from 'sats-connect'
 
+// const BASEURL = 'http://192.168.123.103:5005'
 const BASEURL = 'http://95.217.102.138:5005'
 const NETWORKNAME = 'testnet'
 const DECIMAL = 6;
+const DECIMAL_8 = 8;
 const TOKEN_NAME = 'GOLD'
 const SALE_TYPE = {
   public: 'public',
@@ -47,34 +48,32 @@ const getAccountInfo = (userData, network) => {
 
 function App() {
 
-  const [bitcoin, setBitcoin] = useState(0)
-  const [brc20, setBrc20] = useState(0)
   const [isPurchase, setIsPurchase] = useState(false)
   const [presaleAddress, setPresaleAddress] = useState('')
   const [openDialog, handleDisplay] = useState(false);
 
   const [unisatInstalled, setUnisatInstalled] = useState(false);
   const [unisatConnected, setUnisatConnected] = useState(false);
+
+  const [hiroInstalled, setHiroInstalled] = useState(false);
   const [hiroConnected, setHiroConnected] = useState(false);
-  const [accounts, setAccounts] = useState([]);
-  const [publicKey, setPublicKey] = useState("");
+
+  const [dpalInstalled, setDpalInstalled] = useState(false);
+  const [dpalConnected, setDPalConnected] = useState(false);
+
   const [address, setAddress] = useState("");
   const [balance, setBalance] = useState({
     confirmed: 0,
     unconfirmed: 0,
     total: 0,
   });
-  // const [network, setNetwork] = useState("mainnet");
+
   const [data, setData] = useState({})
   const [network, setNetwork] = useState("testnet");
-
-  const [hiroInstalled, setHiroInstalled] = useState(false);
 
   const [hour, setHour] = useState(0)
   const [minute, setMinute] = useState(0)
   const [second, setSecond] = useState(0)
-
-  const [isSigningIn, setIsSigningIn] = useState(false);
 
   const [pbuyValue, setpBuyValue] = useState(0)
   const [pinvitationCode, setpInvitationCode] = useState('')
@@ -82,17 +81,22 @@ function App() {
   const [wbuyValue, setwBuyValue] = useState(0)
   const [winvitationCode, setwInvitationCode] = useState('')
 
-  const [hasSearchedForExistingSession, setHasSearchedForExistingSession] = useState(false);
-
   const appDetails = {
     name: 'Bitcoin',
     icon: `https://aptosland.io/favicon.ico`,
   }
 
+  // const appDetails = {
+  //   name: 'Bitcoin',
+  //   icon: window.location.origin + '/hiro_logo.png',
+  // }
+
   const appConfig = new AppConfig(['store_write']);
   const userSession = new UserSession({ appConfig });
+  // const userSession = null;
 
   const unisat = window.unisat;
+  const doge = window?.DogeApi;
 
   const getBasicInfo = async () => {
     const _unisat = window.unisat;
@@ -100,7 +104,7 @@ function App() {
     setAddress(address);
 
     const publicKey = await _unisat.getPublicKey();
-    setPublicKey(publicKey);
+    // setPublicKey(publicKey);
 
     const balance = await _unisat.getBalance();
     setBalance(balance);
@@ -122,7 +126,7 @@ function App() {
     }
     self.accounts = _accounts;
     if (_accounts.length > 0) {
-      setAccounts(_accounts);
+      // setAccounts(_accounts);
       setUnisatConnected(true);
 
       setAddress(_accounts[0]);
@@ -138,119 +142,14 @@ function App() {
     setNetwork(network);
   };
 
-  const onChangeBitcoin = (e) => {
-    setBrc20(e.target.value * Math.pow(10, DECIMAL))
-    setBitcoin(e.target.value)
-  }
-
-  const onChangeBrc20 = (e) => {
-    setBrc20(e.target.value)
-    setBitcoin(e.target.value / Math.pow(10, DECIMAL))
-  }
-
-  // const onPurchase = () => {
-  //   if (bitcoin > 0 && brc20 > 0) {
-  //     if ((unisatInstalled || hiroInstalled) && connected) {
-  //       if (!isPurchase)
-  //         setIsPurchase(true)
-  //       try {
-  //         axios.get(
-  //           BASEURL + '/api/getAccountAddress', {},
-  //           {
-  //             headers: {
-  //               'Content-Type': 'application/json'
-  //             }
-  //           }
-  //         ).then(result => {
-  //           if (result.data.success) {
-  //             localStorage.setItem('jwtToken', result.data.token);
-  //             setAuthToken(result.data.token)
-  //             setPresaleAddress(result.data.address)
-  //           } else {
-  //             toast.error('Error getting presale wallet address')
-  //           }
-  //         })
-  //       } catch (error) {
-  //         console.log('getAccountAddress error', error);
-  //       }
-  //     } else {
-  //       if (unisatInstalled || hiroInstalled) toast.error("Connect Wallet");
-  //       else toast.error("Install Wallet");
-  //     }
-  //   } else {
-  //     toast.warning('Set token amounts to purchase')
-  //   }
-  // }
-
-  const onCancel = () => {
-    if (isPurchase)
-      setIsPurchase(false)
-  }
-
-  const onConfirm = async () => {
-    if (bitcoin > 0 && brc20 > 0 && presaleAddress) {
-
-      try {
-        let networkName = await window.unisat.getNetwork();
-        if (networkName !== NETWORKNAME)
-          await window.unisat.switchNetwork(NETWORKNAME);
-
-        if (balance) console.log('balance', balance)
-        axios.post(
-          BASEURL + '/api/auth/checkAccount',
-          {
-            address: address,
-            balance: balance,
-            brc20: brc20,
-            bitcoin: bitcoin
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          }
-        ).then(result => {
-          if (result.data.success) {
-            window.unisat.sendBitcoin(presaleAddress, bitcoin * Math.pow(10, 8)).then((txid) => {
-              axios.post(
-                BASEURL + '/api/auth/setTxid',
-                {
-                  address: address,
-                  txid: txid
-                },
-                {
-                  headers: {
-                    'Content-Type': 'application/json'
-                  }
-                }
-              ).then(result => {
-                if (result.data.success) {
-                  toast.success(result.data.msg)
-                  if (isPurchase)
-                    setIsPurchase(false)
-                } else {
-                  toast.error(result.data.msg)
-                }
-              })
-            }).catch((error) => {
-              console.log('txid error', error);
-            })
-          } else {
-            toast.error(result.data.msg)
-          }
-        })
-      } catch (error) {
-        console.log('getAccountAddress error', error);
-        toast.error(error)
-      }
-    }
-  }
-
   const onConnectWallet = () => {
     if (unisatConnected) {
-
+      setAddress("");
+      setUnisatConnected(false);
     } else if (hiroConnected) {
-
+      userSession.signUserOut();
+      setHiroConnected(false)
+      setAddress("")
     } else {
       handleDisplay(true);
     }
@@ -265,6 +164,7 @@ function App() {
       try {
         const result = await unisat.requestAccounts();
         handleAccountsChanged(result);
+        
       } catch (error) {
         console.log('onConnectUnisat error', error)
       }
@@ -274,63 +174,77 @@ function App() {
   }
 
   const onConnectHiro = () => {
-    if (isSigningIn) {
+    if (userSession.isSignInPending()) {
+      // userSession.signUserOut()
       console.log('Attempted to sign in while sign is is in progress.');
-      return;
+      // return;
     }
-    setIsSigningIn(true);
-    showConnect({
-      userSession,
-      appDetails,
-      redirectTo: '/',
-      onFinish() {
-        setIsSigningIn(false);
+    userSession.signUserOut()
+    if (!userSession.isUserSignedIn()) {
+      showConnect({
+        userSession,
+        appDetails,
+        redirectTo: '/',
+        onFinish() {
 
-        let userData = null;
-        try {
-          userData = userSession.loadUserData();
-        } catch {
-          // do nothing
-        }
-
-        const retVal = getAccountInfo(userData, NETWORKNAME);
-        console.log("onFinish connect", userData, retVal)
-        setAddress(retVal.btcAddressP2tr)
-        setHiroConnected(true);
-        handleDisplay(false)
-      },
-      onCancel() {
-        setIsSigningIn(false);
-        if (!hasSearchedForExistingSession) {
-          if (userSession.isUserSignedIn()) {
-            let userData = null;
-            try {
-              userData = userSession.loadUserData();
-            } catch {
-              // do nothing
-            }
-
-            const retVal2 = getAccountInfo(userData, NETWORKNAME);
-            setAddress(retVal2.btcAddressP2tr)
-            setHiroConnected(true);
+          let userData = null;
+          try {
+            userData = userSession.loadUserData();
+            console.log('userData', userData);
+          } catch {
+            // do nothing
           }
+          const retVal = getAccountInfo(userData, NETWORKNAME);
 
-          setHasSearchedForExistingSession(true);
+          window.btc.request('getAddresses', {
+            types: ['p2wpkh'],
+          }).then(response => {
+            let findIndex = response.result.addresses.findIndex((item) => item.type == 'p2wpkh')
+            setAddress(response.result.addresses[findIndex].address)
+            setHiroConnected(true);
+            handleDisplay(false)
+          }); window.btc.listen('networkChanged', network => {
+            console.log('Network switched in wallet', network);
+          });
+        },
+        onCancel() {
+          handleDisplay(false)
+        },
+      });
+    }
+  }
+
+  const onConnectDpal = async () => {
+    if (dpalInstalled) {
+      try {
+        // or check isEnabled
+        if (doge && (await doge.isEnabled())) {
+          const { userAddress } = await doge.userAddress();
+          const { network } = await doge.network();
+          setAddress(userAddress)
+          setNetwork(network)
         }
-      },
-    });
+      } catch (error) {
+        console.log('onConnectDpal error', error)
+      }
+    } else {
+      window.location.href = "https://chrome.google.com/webstore/detail/dpalwallet-for-dogecoin/lmkncnlpeipongihbffpljgehamdebgi"
+    }
   }
 
   useEffect(() => {
     const _unisat = window.unisat;
+    const _hiro = window.StacksProvider?.isHiroWallet || false
     if (_unisat) {
       setUnisatInstalled(true);
+    } else if (_hiro) {
+      setHiroInstalled(true);
     } else {
       return;
     }
-    _unisat.getAccounts().then((accounts) => {
-      handleAccountsChanged(accounts);
-    });
+    // _unisat.getAccounts().then((accounts) => {
+    //   handleAccountsChanged(accounts);
+    // });
 
     _unisat.on("accountsChanged", handleAccountsChanged);
     _unisat.on("networkChanged", handleNetworkChanged);
@@ -365,18 +279,26 @@ function App() {
           const intervalId = setInterval(() => {
             let currentTs = (new Date()).getTime();
             let leftTs = localStorage.getItem('presaleTime') - (currentTs - localStorage.getItem('startTime'))
-            let seconds = parseInt(leftTs / 1000);
-            let hour = parseInt(seconds / 3600);
-            let minute = parseInt((seconds % 3600) / 60);
-            let second = parseInt(seconds - hour * 3600 - minute * 60);
+            if (leftTs > 0) {
+              let seconds = parseInt(leftTs / 1000);
+              let hour = parseInt(seconds / 3600);
+              let minute = parseInt((seconds % 3600) / 60);
+              let second = parseInt(seconds - hour * 3600 - minute * 60);
 
-            hour = hour < 10 ? "0" + hour : hour;
-            minute = minute < 10 ? "0" + minute : minute;
-            second = second < 10 ? "0" + second : second;
+              hour = hour < 10 ? "0" + hour : hour;
+              minute = minute < 10 ? "0" + minute : minute;
+              second = second < 10 ? "0" + second : second;
 
-            setHour(hour);
-            setMinute(minute);
-            setSecond(second);
+              setHour(hour);
+              setMinute(minute);
+              setSecond(second);
+            } else {
+              intervalId = 0;
+              setHour('00');
+              setMinute('00');
+              setSecond('00');
+            }
+
           }, 1000);
         } else {
           toast.error(result.data.msg)
@@ -387,8 +309,9 @@ function App() {
     }
 
     try {
+      const params = { address : address};
       axios.get(
-        BASEURL + '/api/getData', { address: address },
+        BASEURL + '/api/getData', { params },
         {
           headers: {
             'Content-Type': 'application/json'
@@ -406,15 +329,63 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if(!unisatConnected && !hiroConnected) return
+    if(!address || !address.length) return
+    try {
+      const params = { address : address};
+      axios.get(
+        BASEURL + '/api/getData', { params },
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      ).then(result => {
+        if (result.data.success) {
+          setData(result.data.data)
+        } else {
+          toast.error(result.data.msg)
+        }
+      })
+    } catch (error) {
+      console.log('getData error', error)
+    }
+  }, [address])
+
   const setMax = (type) => {
     if (type == SALE_TYPE.public)
       setpBuyValue(data.max ? data.max : 0)
     else setwBuyValue(data.max ? data.max : 0)
   }
 
+  const reverseTx = (resp, Txerror) => {
+    axios.post(
+      BASEURL + '/api/auth/reverseTx',
+      {
+        address: address,
+        bitcoin: resp.result.amount
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    ).then((result) => {
+      if (result.data.success) {
+        toast.warning(Txerror)
+      } else {
+        console.log('reverseTx error', result.data.msg);
+      }
+    }).catch(error => {
+      console.log('reverse Tx error', error);
+    });
+    console.log('txid error', Txerror);
+  }
+
   const onMint = (type) => {
-    let buyValue = type === SALE_TYPE.public ? pbuyValue : wbuyValue;
-    if (buyValue >= data.min && buyValue <= data.max) {
+    const bitcoin = parseFloat(type === SALE_TYPE.public ? pbuyValue : wbuyValue);
+    if (bitcoin >= data.min && bitcoin <= data.max) {
       if (unisatConnected || hiroConnected) {
         if (!isPurchase)
           setIsPurchase(true)
@@ -431,11 +402,10 @@ function App() {
               localStorage.setItem('jwtToken', result.data.token);
               setAuthToken(result.data.token)
               setPresaleAddress(result.data.address)
-
+              const _presaleAddress = result.data.address;
               try {
                 if (unisatInstalled && unisatConnected) {
-                  let networkName = await window.unisat.getNetwork();
-                  if (networkName !== NETWORKNAME)
+                  if (network !== NETWORKNAME)
                     await window.unisat.switchNetwork(NETWORKNAME);
 
                   if (balance) console.log('balance', balance)
@@ -445,7 +415,7 @@ function App() {
                       address: address,
                       balance: balance,
                       // brc20: brc20,
-                      bitcoin: pbuyValue
+                      bitcoin: bitcoin
                     },
                     {
                       headers: {
@@ -454,7 +424,7 @@ function App() {
                     }
                   ).then(result => {
                     if (result.data.success) {
-                      window.unisat.sendBitcoin(presaleAddress, bitcoin * Math.pow(10, 8)).then((txid) => {
+                      window.unisat.sendBitcoin(_presaleAddress, bitcoin * Math.pow(10, 8)).then((txid) => {
                         axios.post(
                           BASEURL + '/api/auth/setTxid',
                           {
@@ -474,13 +444,15 @@ function App() {
                           } else {
                             toast.error(result.data.msg)
                           }
+                          if (type === SALE_TYPE.public) setpBuyValue(0);
+                          else setwBuyValue(0);
                         })
                       }).catch((error) => {
                         axios.post(
                           BASEURL + '/api/auth/reverseTx',
                           {
                             address: address,
-                            bitcoin: pbuyValue
+                            bitcoin: bitcoin
                           },
                           {
                             headers: {
@@ -488,7 +460,7 @@ function App() {
                             }
                           }
                         ).then((result) => {
-                          if(result.data.success) {
+                          if (result.data.success) {
                             toast.warning(error)
                           } else {
                             console.log('reverseTx error', result.data.msg);
@@ -502,6 +474,61 @@ function App() {
                   })
                 }
                 if (hiroConnected) {
+                  axios.post(
+                    BASEURL + '/api/auth/checkAccount',
+                    {
+                      address: address,
+                      // brc20: brc20,
+                      bitcoin: bitcoin
+                    },
+                    {
+                      headers: {
+                        'Content-Type': 'application/json'
+                      }
+                    }
+                  ).then(result => {
+                    if (result.data.success) {
+                      // start transaction
+                      window.btc?.request('sendTransfer', {
+                        address: _presaleAddress,
+                        amount: bitcoin * Math.pow(10, DECIMAL_8)
+                      }).then((resp) => {
+                        console.log('resp', resp)
+                        let txid = resp.result.txid;
+                        axios.post(
+                          BASEURL + '/api/auth/setTxid',
+                          {
+                            address: address,
+                            txid: txid,
+                          },
+                          {
+                            headers: {
+                              'Content-Type': 'application/json'
+                            }
+                          }
+                        ).then(result => {
+                          if (result.data.success) {
+                            toast.success(result.data.msg)
+                            if (isPurchase)
+                              setIsPurchase(false)
+                          } else {
+                            toast.error(result.data.msg)
+                          }
+                          if (type === SALE_TYPE.public) setpBuyValue(0);
+                          else setwBuyValue(0);
+                        }).catch((error) => {
+                          reverseTx(resp, error)
+                        })
+                      }).catch(error => {
+                        console.log('sendTransfer error', error)
+                      });
+                      // end transaction
+                    } else {
+                      toast.error(result.data.msg)
+                    }
+                  }).catch(error => {
+                    console.log('hiro get balance error', error)
+                  })
 
                 }
               } catch (error) {
@@ -547,58 +574,7 @@ function App() {
         <Button className='mr-30' variant="primary" size="lg" onClick={onConnectWallet}>{unisatInstalled && unisatConnected || hiroConnected ? renderWalletAddress(address) : 'Connect Wallet'}</Button>
       </div>
       <div className="flex flex-column items-center w-full">
-        {/* first result */}
-        {/* {isPurchase ? (
-          <div className='content-bg flex flex-column w-50 h-70vh br-10 justify-around items-center pt-30 pb-30'>
-            <Row className='flex justify-between items-center w-80'>
-              <span className='text-white fs-32'>Send bitcoin here:</span>
-              <InputGroup>
-                <Form.Control
-                  value={presaleAddress}
-                  aria-label="Large"
-                  aria-describedby="inputGroup-sizing-sm"
-                />
-              </InputGroup>
-            </Row>
-            <Row>
-              <Col>
-                <Button onClick={onConfirm} variant="primary" size="lg">Confirm</Button>
-              </Col>
-              <Col>
-                <Button variant="primary" size="lg" onClick={onCancel}>Cancel</Button>
-              </Col>
-            </Row>
-          </div>
-        ) : (
-          <div className='content-bg flex flex-column w-50 h-70vh br-10 justify-around items-center pt-30 pb-30'>
-            <Row className='flex justify-between items-center w-50'>
-              <span className='text-white fs-32'>BitCoin:</span>
-              <InputGroup>
-                <Form.Control
-                  type='number'
-                  value={bitcoin}
-                  onChange={onChangeBitcoin}
-                  aria-label="Large"
-                  aria-describedby="inputGroup-sizing-sm"
-                />
-              </InputGroup>
-            </Row>
-            <Row className='flex justify-between items-center  w-50'>
-              <span className='text-white fs-32'>Brc20:</span>
-              <InputGroup>
-                <Form.Control
-                  type='number'
-                  value={brc20}
-                  onChange={onChangeBrc20}
-                  aria-label="Large"
-                  aria-describedby="inputGroup-sizing-sm"
-                />
-              </InputGroup>
-            </Row>
-            <Button variant="primary" size="lg" onClick={onPurchase}>Purchase</Button>
-          </div>
-        )} */}
-        {/* second result */}
+        {/* PUBLIC SALE */}
         <div className='content-bg flex flex-column w-50 br-10 items-center p-30 mb-30'>
           <Row className='flex justify-center items-center mb-20'>
             <span className='text-white fs-48'>PUBLIC SALE</span>
@@ -631,7 +607,7 @@ function App() {
           </Row>
           <Row className='mt-30 fs-24 w-full'>
             <Col sm={9} className='text-white'>My Investment</Col>
-            <Col sm={3} className='text-white align-right'>{data.inverstment ? data.inverstment : 0}<span className='text-yellow' style={{ marginLeft: '4px' }}>BTC</span></Col>
+            <Col sm={3} className='text-white align-right'>{data.investment ? data.investment : 0}<span className='text-yellow' style={{ marginLeft: '4px' }}>BTC</span></Col>
           </Row>
           <Row className='mt-30 fs-24 w-full'>
             <Col sm={9} className='text-white'>Received</Col>
@@ -639,7 +615,7 @@ function App() {
           </Row>
           <Row className='mt-30 fs-24 w-full'>
             <Col sm={3} className='text-white'>Ratio</Col>
-            <Col sm={9} className='text-white align-right'>1 <span className='text-yellow'>XXX</span>{` = ${data.ratio ? data.ratio : 0}`}<span className='text-yellow' style={{ marginLeft: '4px' }}>BTC</span></Col>
+            <Col sm={9} className='text-white align-right'>1 <span className='text-yellow'>{TOKEN_NAME}</span>{` = ${data.ratio ? data.ratio : 0}`}<span className='text-yellow' style={{ marginLeft: '4px' }}>BTC</span></Col>
           </Row>
           <Row className='input-border w-full mt-30 p-10'>
             <Col sm={3}><Button onClick={() => setMax(SALE_TYPE.public)} className='fs-32' variant="yellow" size="md" style={{ width: '100px' }}>MAX</Button></Col>
@@ -692,7 +668,7 @@ function App() {
             <Button onClick={() => onMint(SALE_TYPE.public)} className='fs-32' variant="yellow" size="lg" style={{ width: '200px' }}>MINT</Button>
           </Row>
         </div>
-
+        {/* WHITELIST SALE */}
         <div className='content-bg flex flex-column w-50 br-10 items-center p-30 mb-30'>
           <Row className='flex justify-center items-center mb-20'>
             <span className='text-white fs-48'>WHITELIST SALE</span>
@@ -725,7 +701,7 @@ function App() {
           </Row>
           <Row className='mt-30 fs-24 w-full'>
             <Col sm={9} className='text-white'>My Investment</Col>
-            <Col sm={3} className='text-white align-right'>{data.inverstment ? data.inverstment : 0}<span className='text-yellow' style={{ marginLeft: '4px' }}>BTC</span></Col>
+            <Col sm={3} className='text-white align-right'>{data.investment ? data.investment : 0}<span className='text-yellow' style={{ marginLeft: '4px' }}>BTC</span></Col>
           </Row>
           <Row className='mt-30 fs-24 w-full'>
             <Col sm={9} className='text-white'>Received</Col>
@@ -733,10 +709,10 @@ function App() {
           </Row>
           <Row className='mt-30 fs-24 w-full'>
             <Col sm={3} className='text-white'>Ratio</Col>
-            <Col sm={9} className='text-white align-right'>1 <span className='text-yellow'>XXX</span>{` = ${data.ratio ? data.ratio : 0}`}<span className='text-yellow' style={{ marginLeft: '4px' }}>BTC</span></Col>
+            <Col sm={9} className='text-white align-right'>1 <span className='text-yellow'>{TOKEN_NAME}</span>{` = ${data.ratio ? data.ratio : 0}`}<span className='text-yellow' style={{ marginLeft: '4px' }}>BTC</span></Col>
           </Row>
           <Row className='input-border w-full mt-30 p-10'>
-            <Col sm={3}><Button onClick={setMax} className='fs-32' variant="yellow" size="md" style={{ width: '100px' }}>MAX</Button></Col>
+            <Col sm={3}><Button onClick={() => setMax(SALE_TYPE.whitelist)} className='fs-32' variant="yellow" size="md" style={{ width: '100px' }}>MAX</Button></Col>
             <Col sm={8}>
               <InputGroup className='w-full'>
                 <Form.Control
@@ -772,17 +748,17 @@ function App() {
                     color: "#F7931A"
                   }}
                   placeholder='(optional)'
+                  onChange={(e) => setInvitationCode(SALE_TYPE.whitelist, e.target.value)}
                 />
               </InputGroup>
             </Col>
           </Row>
           <Row className='flex justify-center items-center mt-30'>
-            <Button onClick={onMint} className='fs-32' variant="yellow" size="lg" style={{ width: '200px' }}>MINT</Button>
+            <Button onClick={() => onMint(SALE_TYPE.whitelist)} className='fs-32' variant="yellow" size="lg" style={{ width: '200px' }}>MINT</Button>
           </Row>
         </div>
       </div>
     </div >
-
   );
 }
 
