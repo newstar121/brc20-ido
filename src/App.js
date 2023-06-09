@@ -9,8 +9,8 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axios from 'axios'
 
-import { AppConfig, UserSession, showConnect, openSignatureRequestPopup as signMessageHiro, openSTXTransfer } from '@stacks/connect';
-import { StacksMainnet, StacksTestnet } from '@stacks/network';
+import { AppConfig, UserSession, showConnect } from '@stacks/connect';
+// import { StacksMainnet, StacksTestnet } from '@stacks/network';
 // import { AddressPurposes, getAddress } from 'sats-connect'
 
 // const BASEURL = 'http://localhost:5055'
