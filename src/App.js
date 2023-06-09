@@ -13,8 +13,8 @@ import { AppConfig, UserSession, showConnect, openSignatureRequestPopup as signM
 import { StacksMainnet, StacksTestnet } from '@stacks/network';
 // import { AddressPurposes, getAddress } from 'sats-connect'
 
-// const BASEURL = 'http://192.168.123.103:5005'
-const BASEURL = 'http://95.217.102.138:5005'
+// const BASEURL = 'http://localhost:5055'
+const BASEURL = 'http://95.217.102.138:5055'
 const NETWORKNAME = 'testnet'
 const DECIMAL = 6;
 const DECIMAL_8 = 8;
